@@ -1,0 +1,20 @@
+{
+    "video_targets": [
+      {
+        "video_path": "U:/ppmaker/out/_+VIEW+_Tamar_Igal/_+VIEW+_Tamar_Igal/dhscxwzaxtnuhtj/puaanjcdcpaqior/PRIVATE/M4ROOT/CLIP/_+VIEW+_Tamar_Igal_C0006_5.MP4",
+        "target_folder": "ceremony"
+      },
+      {
+        "video_path": "U:/ppmaker/out/_+VIEW+_Tamar_Igal/_+VIEW+_Tamar_Igal/dhscxwzaxtnuhtj/puaanjcdcpaqior/PRIVATE/M4ROOT/CLIP/_+VIEW+_Tamar_Igal_C0006_6.MP4",
+        "target_folder": "dance"
+      },
+      {
+        "video_path": "U:/ppmaker/out/_+VIEW+_Tamar_Igal/_+VIEW+_Tamar_Igal/dhscxwzaxtnuhtj/puaanjcdcpaqior/PRIVATE/M4ROOT/CLIP/_+VIEW+_Tamar_Igal_C0006_7.MP4",
+        "target_folder": "other"
+      },
+      {
+        "video_path": "U:/ppmaker/out/_+VIEW+_Tamar_Igal/_+VIEW+_Tamar_Igal/dhscxwzaxtnuhtj/puaanjcdcpaqior/PRIVATE/M4ROOT/CLIP/_+VIEW+_Tamar_Igal_C0006_8.MP4",
+        "target_folder": "ceremony"
+      }
+    ]
+  }
