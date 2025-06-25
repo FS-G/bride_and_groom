@@ -57,7 +57,7 @@ VALIDATION_SPLIT: float = 0.01  # 1% of data for validation, as in original scri
 CONFIG_FILE: Path = Path("finetune_parameters.json")  # Configuration file with video targets
 PARAMS_JSON_FILE: Path = Path("parameters.json")  # Main parameters file to update after training
 DATA_DIR: Path = Path("./finetune/data")  # Directory for extracted training data
-MODEL_DIR: Path = Path("./model")  # Directory for storing model weights
+MODEL_DIR: Path = Path("./models")  # Directory for storing model weights
 MODEL_WEIGHTS_BASENAME: str = "cnn_model_weights"  # Base name for model weight files
 
 
