@@ -1,4 +1,11 @@
 """
+DISCLAIMER - AMINDAV PROPERTY
+
+This software is the exclusive property of Amindav. All rights reserved.
+Unauthorized copying, distribution, or modification of this code is strictly prohibited.
+This system is designed for fine-tuning AI models used in the bride and groom identification system.
+
+SYSTEM OVERVIEW:
 This script performs two main tasks:
 1.  Frame Extraction: Extracts frames from specified video files and saves them
     into categorized folders. The video sources and target categories are defined
@@ -9,6 +16,17 @@ This script performs two main tasks:
     weights with an incremented version number.
 3.  Parameter Update: After successful training, it updates the 'parameters.json'
     file with the new model version ID.
+
+WORKFLOW:
+1. Loads video targets from finetune_parameters.json
+2. Extracts frames from specified videos into categorized folders
+3. Finds the latest model weights for fine-tuning
+4. Trains the model on new data with frozen early layers
+5. Saves new model weights with incremented version
+6. Updates parameters.json with new model ID
+
+AUTHOR: Amindav Development Team
+VERSION: 1.0
 """
 import json
 import os
@@ -27,19 +45,20 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 # --- Configuration Constants ---
 
 # Model & Training Hyperparameters
-IMG_SIZE: Tuple[int, int] = (224, 224)
-BATCH_SIZE: int = 10
-NUM_CLASSES: int = 3  # Corresponds to the number of subfolders in DATA_DIR
-LEARNING_RATE: float = 1e-4
-EPOCHS: int = 5
+# These parameters control the CNN architecture and training process
+IMG_SIZE: Tuple[int, int] = (224, 224)  # Standard input size for the CNN model
+BATCH_SIZE: int = 10  # Number of samples per training batch
+NUM_CLASSES: int = 3  # Corresponds to the number of subfolders in DATA_DIR (ceremony, dance, other)
+LEARNING_RATE: float = 1e-4  # Learning rate for fine-tuning (lower than initial training)
+EPOCHS: int = 5  # Number of training epochs
 VALIDATION_SPLIT: float = 0.01  # 1% of data for validation, as in original script
 
 # File and Directory Paths
-CONFIG_FILE: Path = Path("finetune_parameters.json")
-PARAMS_JSON_FILE: Path = Path("parameters.json")  # <-- ADDED for the main parameters file
-DATA_DIR: Path = Path("./finetune/data")
-MODEL_DIR: Path = Path("./model")
-MODEL_WEIGHTS_BASENAME: str = "cnn_model_weights"
+CONFIG_FILE: Path = Path("finetune_parameters.json")  # Configuration file with video targets
+PARAMS_JSON_FILE: Path = Path("parameters.json")  # Main parameters file to update after training
+DATA_DIR: Path = Path("./finetune/data")  # Directory for extracted training data
+MODEL_DIR: Path = Path("./model")  # Directory for storing model weights
+MODEL_WEIGHTS_BASENAME: str = "cnn_model_weights"  # Base name for model weight files
 
 
 # --- Helper Functions for Configuration and Pathing ---
@@ -50,6 +69,7 @@ def get_model_version_paths(model_dir: Path, basename: str) -> Tuple[Optional[Pa
 
     Searches for files matching 'basename{version}.weights.h5', finds the highest
     version number, and returns its path along with the path for the next version.
+    This ensures automatic versioning of model weights.
 
     Args:
         model_dir (Path): The directory where model weights are stored.
@@ -87,6 +107,9 @@ def load_video_targets_from_config(config_path: Path) -> List[Dict[str, str]]:
     """
     Loads video processing targets from a JSON configuration file.
 
+    This function reads the finetune_parameters.json file to get the list of
+    videos to process and their target categories for training data generation.
+
     Args:
         config_path (Path): The path to the JSON configuration file.
 
@@ -113,10 +136,12 @@ def load_video_targets_from_config(config_path: Path) -> List[Dict[str, str]]:
         print(f"ERROR: Could not decode JSON from '{config_path}'. Check for syntax errors.")
         raise
 
-# --- NEW HELPER FUNCTION TO UPDATE PARAMETERS.JSON ---
 def update_model_id_in_params(params_path: Path, new_weights_path: Path, basename: str):
     """
     Updates the 'model_id_video' in the parameters.json file with the new version.
+
+    After successful model training, this function automatically updates the
+    main parameters file so the system will use the newly trained model.
 
     Args:
         params_path (Path): Path to the parameters.json file.
@@ -166,6 +191,10 @@ def extract_and_save_frames(video_path: str, output_dir: Path, n_frames: int = 5
     """
     Extracts, resizes, and saves evenly spaced frames from a video.
 
+    This function processes a video file to extract training frames for the CNN model.
+    It extracts frames evenly distributed throughout the video duration and resizes
+    them to the standard input size for the model.
+
     Args:
         video_path (str): Path to the video file.
         output_dir (Path): Directory where the frames will be saved.
@@ -181,16 +210,19 @@ def extract_and_save_frames(video_path: str, output_dir: Path, n_frames: int = 5
                 print(f"WARNING: Video has zero or negative duration. Skipping: {video_path}")
                 return
             
+            # Extract frames evenly distributed throughout the video
             timestamps = np.linspace(0, duration, n_frames, endpoint=False)
             for t in timestamps:
                 frame = clip.get_frame(t)
                 frame_image = Image.fromarray(frame)
 
+                # Resize image while maintaining aspect ratio
                 orig_width, orig_height = frame_image.size
                 new_height = IMG_SIZE[0]
                 new_width = int(orig_width * new_height / orig_height)
                 resized_image = frame_image.resize((new_width, new_height), Image.LANCZOS)
 
+                # Save with unique filename to prevent conflicts
                 frame_path = output_dir / f"{uuid.uuid4().hex}.jpg"
                 resized_image.save(frame_path)
         print(f"-> Finished. Saved {n_frames} frames to '{output_dir}'.")
@@ -199,9 +231,14 @@ def extract_and_save_frames(video_path: str, output_dir: Path, n_frames: int = 5
 
 
 def create_data_generators(dataset_dir: Path) -> Tuple[ImageDataGenerator, ImageDataGenerator]:
-    """Creates and returns training and validation data generators."""
+    """
+    Creates and returns training and validation data generators.
+    
+    These generators handle data augmentation and preprocessing for the CNN model.
+    They automatically split the data into training and validation sets.
+    """
     datagen = ImageDataGenerator(
-        rescale=1.0 / 255.0,
+        rescale=1.0 / 255.0,  # Normalize pixel values to [0,1]
         validation_split=VALIDATION_SPLIT
     )
 
@@ -226,7 +263,12 @@ def create_data_generators(dataset_dir: Path) -> Tuple[ImageDataGenerator, Image
 
 
 def create_cnn_model(input_shape: Tuple, num_classes: int) -> models.Sequential:
-    """Builds and returns the CNN model architecture."""
+    """
+    Builds and returns the CNN model architecture.
+    
+    This creates a standard CNN architecture suitable for video frame classification.
+    The model consists of convolutional layers, pooling layers, and dense layers.
+    """
     model = models.Sequential([
         layers.Conv2D(32, (3, 3), activation="relu", input_shape=input_shape),
         layers.MaxPooling2D((2, 2)),
@@ -242,7 +284,12 @@ def create_cnn_model(input_shape: Tuple, num_classes: int) -> models.Sequential:
 
 
 def freeze_layers(model: models.Sequential, num_layers_to_freeze: int) -> models.Sequential:
-    """Freezes the first `num_layers_to_freeze` layers of the model."""
+    """
+    Freezes the first `num_layers_to_freeze` layers of the model.
+    
+    This is a key technique in fine-tuning where early layers (which learn
+    general features) are frozen while later layers are trained on new data.
+    """
     for layer in model.layers[:num_layers_to_freeze]:
         layer.trainable = False
     print(f"INFO: First {num_layers_to_freeze} layers frozen for fine-tuning.")
@@ -252,6 +299,9 @@ def freeze_layers(model: models.Sequential, num_layers_to_freeze: int) -> models
 def fine_tune_model(weights_path: Optional[Path], dataset_dir: Path) -> models.Sequential:
     """
     Orchestrates the model fine-tuning process, preserving the original logic.
+    
+    This function handles the complete fine-tuning workflow including model creation,
+    weight loading, layer freezing, and training.
     """
     input_shape = (*IMG_SIZE, 3)
     
@@ -292,7 +342,16 @@ def fine_tune_model(weights_path: Optional[Path], dataset_dir: Path) -> models.S
 
 
 def main():
-    """Main execution function to run the entire workflow."""
+    """
+    Main execution function to run the entire workflow.
+    
+    This function orchestrates the complete fine-tuning process:
+    1. Configuration loading
+    2. Frame extraction from videos
+    3. Model fine-tuning
+    4. Weight saving
+    5. Parameter file updates
+    """
     print("--- Starting Fine-Tuning Script ---")
     
     # --- Step 1: Handle Configuration and Paths ---
